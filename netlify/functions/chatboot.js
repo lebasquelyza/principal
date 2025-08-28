@@ -2,7 +2,7 @@
 // Files Chatbot — Bilingue FR/EN, SANS API d'IA, réponses variées + redirections strictes.
 // Aucune dépendance, aucun secret requis. RESEND_API_KEY n'est PAS utilisé ici.
 
-const QUESTIONNAIRE_URL = "https://files-coaching.com/questionnaire.html";
+const QUESTIONNAIRE_URL = "questionnaire-files.questionnaire.app";
 const CONTACT_EMAIL     = "sportifandpro@gmail.com";
 
 // --------- utils ---------
