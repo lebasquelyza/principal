@@ -1,32 +1,39 @@
 // netlify/functions/chatboot.js
-// Files Chatbot — Bilingue FR/EN, SANS API d'IA, réponses variées + redirections strictes.
-// Aucune dépendance, aucun secret requis. RESEND_API_KEY n'est PAS utilisé ici.
+// Files Coaching — Chatbot IA (OpenAI), FR/EN, mots-clés + règles verrouillées.
+//
+// Règles:
+// - Si on demande séance/exercices précis, nutrition/recettes exactes, ou prix → REDIRIGE vers questionnaire.
+// - Sinon : appelle l'IA pour une réponse courte (1–3 phrases), utile, dans la bonne langue.
+// - Post-filtre : si le modèle donne par erreur un contenu interdit → re-redirige.
+//
+// ENV requis: OPENAI_API_KEY (sk-...), OPENAI_MODEL (ex: gpt-4o-mini)
+// Optionnel:  OPENAI_BASE_URL (par défaut https://api.openai.com/v1)
 
-const QUESTIONNAIRE_URL = "questionnaire-files.questionnaire.app";
+const QUESTIONNAIRE_URL = "https://files-coaching.com/questionnaire.html";
 const CONTACT_EMAIL     = "sportifandpro@gmail.com";
 
-// --------- utils ---------
-const low  = (s) => (s || "").toLowerCase();
-const any  = (t, arr) => arr.some(k => t.includes(k));
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+// ---------------- Utils ----------------
+const low = (s) => (s || "").toLowerCase();
+const any = (t, arr) => arr.some(k => t.includes(k));
+const pick = (arr) => arr[Math.floor(Math.random()*arr.length)];
 const isEmpty = (v) => !v || !String(v).trim();
 
-// Détection simple FR/EN : si mots anglais → EN, sinon FR
+// Détection langue simple: mots anglais → en, sinon fr
 function detectLang(msg) {
-  if (any(msg, ["hello","hi","hey","workout","training","plan","price","food","nutrition","help"]))
+  if (any(msg, ["hello","hi","hey","workout","training","plan","price","food","nutrition","help","cost"]))
     return "en";
   return "fr";
 }
 
-// --------- lexiques intents ---------
+// ---------------- Lexiques d’intentions ----------------
 const K = {
   fr: {
     hello: ["bonjour","salut","coucou","yo"],
     form:  ["questionnaire","formulaire","accès","acces","inscription"],
     bug:   ["bug","erreur","problème","probleme","marche pas","bloqué","bloquee","bloque","je n'arrive pas","je narrive pas"],
-    price: ["prix","tarif","abonnement","payer","paiement","combien","€","euro","tarifs"],
+    price: ["prix","tarif","tarifs","abonnement","payer","paiement","combien","€","euro"],
     train: ["séance","seance","exercice","exos","programme","entrain","routine","planning","workout","plan d'entraînement","plan d entrainement"],
-    food:  ["nutrition","recette","repas","manger","alimentation","macro","calorie","calories","protéine","proteine","glucide","lipide"],
+    food:  ["nutrition","recette","recettes","repas","manger","alimentation","macro","calorie","calories","protéine","proteine","glucide","lipide"],
     gear:  ["matériel","materiel","équipement","equipement","haltère","barre","élastique","tapis","chaussure","chaussures"],
     recover:["récup","recup","sommeil","étirement","etirement","stretch","courbature","hydratation","repos"],
     motivate:["motivation","démarrer","demarrer","commencer","reprise","reprendre","régularité","regularite","discipline","pas motivé","pas motive"]
@@ -44,7 +51,21 @@ const K = {
   }
 };
 
-// --------- banques de réponses variées ---------
+function detectIntent(lang, msg) {
+  const keys = K[lang];
+  if (any(msg, keys.hello))    return "hello";
+  if (any(msg, keys.form))     return "form";
+  if (any(msg, keys.bug))      return "bug";
+  if (any(msg, keys.price))    return "price";   // → redirection
+  if (any(msg, keys.train))    return "train";   // → redirection
+  if (any(msg, keys.food))     return "food";    // → redirection
+  if (any(msg, keys.gear))     return "gear";
+  if (any(msg, keys.recover))  return "recover";
+  if (any(msg, keys.motivate)) return "motivate";
+  return "other";
+}
+
+// ---------------- Réponses locales variées ----------------
 const R = {
   fr: {
     hello: [
@@ -107,11 +128,11 @@ const R = {
     toFormTrain: [
       `For tailored workouts, please fill the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
       `Custom program? Start here 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
-      `I’ll redirect you to the form for a truly personalized plan 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`
+      `I’ll redirect you to the form for a personalized plan 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`
     ],
     toFormFood: [
       `I don’t provide exact meal plans here 😉 For a custom diet: <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
-      `No detailed nutrition in chat. We do that after the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
+      `No detailed nutrition in chat. We’ll do that after the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
       `For precise nutrition, please start with the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`
     ],
     toFormPrice: [
@@ -152,51 +173,59 @@ const R = {
   }
 };
 
-// --------- détection d'intentions ---------
-function detectIntent(lang, msg) {
-  const keys = K[lang];
-  if (any(msg, keys.hello))    return "hello";
-  if (any(msg, keys.form))     return "form";
-  if (any(msg, keys.bug))      return "bug";
-  if (any(msg, keys.price))    return "price";   // → redirection
-  if (any(msg, keys.train))    return "train";   // → redirection
-  if (any(msg, keys.food))     return "food";    // → redirection
-  if (any(msg, keys.gear))     return "gear";
-  if (any(msg, keys.recover))  return "recover";
-  if (any(msg, keys.motivate)) return "motivate";
-  return "other";
+// Règles bloquantes → redirection
+function policyAnswer(lang, msg) {
+  const L = R[lang];
+  const it = detectIntent(lang, msg);
+  if (it === "price") return { reply: pick(L.toFormPrice) };
+  if (it === "train") return { reply: pick(L.toFormTrain), suggestions: L.suggestions.train };
+  if (it === "food")  return { reply: pick(L.toFormFood),  suggestions: L.suggestions.generic };
+  return null;
+}
+// ---------------- Appel IA (OpenAI Chat Completions) ----------------
+async function callLLM({ userMessage, lang }) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const model  = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const base   = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+  if (!apiKey) throw new Error("Missing OPENAI_API_KEY");
+
+  const system = (lang === "en")
+    ? "You are Files, a fitness assistant for files-coaching.com. Never provide full workouts, exact nutrition/recipes, or pricing. If asked for those, say to use the questionnaire link. Keep answers short (1–3 sentences), helpful, friendly."
+    : "Tu es Files, assistant de coaching sportif pour files-coaching.com. Ne donne JAMAIS de séance complète, ni de nutrition/recettes exactes, ni de prix. Si on te les demande, dis d'utiliser le lien du questionnaire. Réponses courtes (1–3 phrases), utiles, amicales.";
+
+  const res = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userMessage }
+      ],
+      temperature: 0.6
+    })
+  });
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`LLM ${res.status}: ${t.slice(0,200)}`);
+  }
+  const json = await res.json();
+  return json.choices?.[0]?.message?.content?.trim() || (lang === "en"
+    ? "I’m not sure I understood."
+    : "Je ne suis pas sûr d’avoir compris.");
 }
 
-// --------- moteur de réponse ---------
-function respond(lang, msg) {
-  const set = R[lang];
-  const intent = detectIntent(lang, msg);
-
-  // Règles bloquantes
-  if (intent === "price") return { reply: pick(set.toFormPrice) };
-  if (intent === "train") return { reply: pick(set.toFormTrain), suggestions: set.suggestions.train };
-  if (intent === "food")  return { reply: pick(set.toFormFood),  suggestions: set.suggestions.generic };
-
-  // Raccourcis utiles
-  if (intent === "hello")   return { reply: pick(set.hello),   suggestions: set.suggestions.hello };
-  if (intent === "form")    return { reply: pick(set.siteHelp) };
-  if (intent === "bug")     return { reply: pick(set.bug),     suggestions: set.suggestions.bug };
-  if (intent === "gear")    return { reply: pick(set.gear) };
-  if (intent === "recover") return { reply: pick(set.recover) };
-  if (intent === "motivate")return { reply: pick(set.motivate) };
-
-  // Fallback
-  return { reply: pick(set.fallback), suggestions: set.suggestions.generic };
-}
-
-// --------- handler Netlify ---------
+// ---------------- Handler ----------------
 exports.handler = async (event) => {
-  try {
-    const headers = { "Content-Type": "application/json" };
+  const headers = { "Content-Type": "application/json" };
 
-    // Test direct GET
+  try {
     if (event.httpMethod === "GET") {
-      return { statusCode: 200, headers, body: JSON.stringify({ reply: "Chat prêt ✅ / Chat ready ✅" }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ reply: "IA prête ✅ / AI ready ✅" }) };
     }
     if (event.httpMethod === "OPTIONS") {
       return { statusCode: 200, headers, body: "" };
@@ -209,15 +238,34 @@ exports.handler = async (event) => {
     }
 
     const lang = detectLang(message);
-    const out  = respond(lang, low(message));
+    const msgL = low(message);
 
-    return { statusCode: 200, headers, body: JSON.stringify(out) };
+    // 1) Règles bloquantes (redirigent immédiatement)
+    const pol = policyAnswer(lang, msgL);
+    if (pol) return { statusCode: 200, headers, body: JSON.stringify(pol) };
+
+    // 2) Réponses rapides sans IA (salut, bug, matos, récup, motivation…)
+    const quick = quickAnswer(lang, msgL);
+    if (quick) return { statusCode: 200, headers, body: JSON.stringify(quick) };
+
+    // 3) Sinon → IA
+    let ai = await callLLM({ userMessage: message, lang });
+
+    // 4) Post-filtre sécurité (si le modèle déborde)
+    const bad = /(recette|recipes?|meal plan|nutrition plan|full (workout|program)|séance complète|prix|tarif|price|cost|exact macros?)/i;
+    if (bad.test(ai)) {
+      ai = (lang === "en")
+        ? `For that, please use the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`
+        : `Pour ça, passe par le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`;
+    }
+
+    return { statusCode: 200, headers, body: JSON.stringify({ reply: ai }) };
   } catch (e) {
-    console.error("Function crash:", e);
-    // on renvoie quand même une réponse (pas de 500 côté UI)
+    console.error("Chatboot error:", e);
+    // Pas de 500 côté UI : on renvoie un fallback propre
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         reply: `Je peux t’aider à naviguer / I can help you navigate 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès / Access</a>.`
       })
