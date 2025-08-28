@@ -1,17 +1,50 @@
-// netlify/functions/chatboot.js — FR/EN + règles verrouillées + FALLBACK si IA échoue
-const QUESTIONNAIRE_URL = "questionnaire-files.netlify.app";
+// netlify/functions/chatboot.js
+// Files Chatbot — Bilingue FR/EN, SANS API d'IA, réponses variées + redirections strictes.
+// Aucune dépendance, aucun secret requis. RESEND_API_KEY n'est PAS utilisé ici.
+
+const QUESTIONNAIRE_URL = "https://files-coaching.com/questionnaire.html";
 const CONTACT_EMAIL     = "sportifandpro@gmail.com";
 
-const low = s => (s || "").toLowerCase();
-const any = (t, arr) => arr.some(k => t.includes(k));
-const pick = arr => arr[Math.floor(Math.random()*arr.length)];
-const isEmpty = v => !v || !String(v).trim();
+// --------- utils ---------
+const low  = (s) => (s || "").toLowerCase();
+const any  = (t, arr) => arr.some(k => t.includes(k));
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const isEmpty = (v) => !v || !String(v).trim();
 
+// Détection simple FR/EN : si mots anglais → EN, sinon FR
 function detectLang(msg) {
-  if (any(msg, ["hello","hi","hey","workout","training","plan","price","food","nutrition"])) return "en";
+  if (any(msg, ["hello","hi","hey","workout","training","plan","price","food","nutrition","help"]))
+    return "en";
   return "fr";
 }
 
+// --------- lexiques intents ---------
+const K = {
+  fr: {
+    hello: ["bonjour","salut","coucou","yo"],
+    form:  ["questionnaire","formulaire","accès","acces","inscription"],
+    bug:   ["bug","erreur","problème","probleme","marche pas","bloqué","bloquee","bloque","je n'arrive pas","je narrive pas"],
+    price: ["prix","tarif","abonnement","payer","paiement","combien","€","euro","tarifs"],
+    train: ["séance","seance","exercice","exos","programme","entrain","routine","planning","workout","plan d'entraînement","plan d entrainement"],
+    food:  ["nutrition","recette","repas","manger","alimentation","macro","calorie","calories","protéine","proteine","glucide","lipide"],
+    gear:  ["matériel","materiel","équipement","equipement","haltère","barre","élastique","tapis","chaussure","chaussures"],
+    recover:["récup","recup","sommeil","étirement","etirement","stretch","courbature","hydratation","repos"],
+    motivate:["motivation","démarrer","demarrer","commencer","reprise","reprendre","régularité","regularite","discipline","pas motivé","pas motive"]
+  },
+  en: {
+    hello: ["hello","hi","hey"],
+    form:  ["form","questionnaire","register","sign up","signup","sign-up","access"],
+    bug:   ["bug","error","issue","problem","doesn't work","stuck","unable"],
+    price: ["price","cost","plan","subscription","pay","euro","€","pricing"],
+    train: ["session","exercise","workout","program","routine","training","plan","schedule"],
+    food:  ["food","nutrition","diet","meal","recipe","protein","carb","fat","calorie","calories","macros"],
+    gear:  ["equipment","gear","dumbbell","bar","elastic","band","mat","shoes"],
+    recover:["recover","recovery","sleep","stretch","rest","hydration","sore","soreness"],
+    motivate:["motivation","start","restart","discipline","regularity","consistency","not motivated"]
+  }
+};
+
+// --------- banques de réponses variées ---------
 const R = {
   fr: {
     hello: [
@@ -22,14 +55,21 @@ const R = {
     toFormTrain: [
       `Pour des séances/exercices adaptés, passe par le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`,
       `Le mieux pour un programme sur mesure : le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`,
+      `Je te redirige vers le questionnaire pour un plan personnalisé 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`
     ],
     toFormFood: [
       `Je ne fournis pas de plan/recettes exactes ici 😉 Pour du personnalisé : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`,
       `Pas de nutrition détaillée dans le chat. On le fait après questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`,
+      `Pour une alimentation au cordeau, passe par le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`
     ],
     toFormPrice: [
       `Les tarifs dépendent de tes objectifs. Oriente-toi via le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`,
-      `On personnalise aussi le budget. D’abord le questionnaire, et on te dit tout 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`,
+      `On personnalise aussi le budget. D’abord le questionnaire, et on te dit tout 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`
+    ],
+    siteHelp: [
+      `Besoin d’aide sur le site ? Dis-moi ce qui bloque et je te guide ✋`,
+      `Tu peux accéder au questionnaire ici : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`,
+      `Pour nous écrire : <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.`
     ],
     bug: [
       `Oups 😅 dis-moi où ça bloque et je t’accompagne. Essaie aussi d’actualiser (⌘⇧R).`,
@@ -50,7 +90,13 @@ const R = {
     fallback: [
       `Je peux t’aider à naviguer ou te rediriger vers le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`,
       `Tu veux des infos, de l’aide ou t’orienter ? Je suis là 🙂`
-    ]
+    ],
+    suggestions: {
+      hello: ["Accéder au questionnaire","Aide navigation","Contacter l’équipe"],
+      train: ["Objectif perte de poids","Objectif prise de masse"],
+      bug:   ["Accéder au questionnaire","Contacter l’équipe"],
+      generic:["Accéder au questionnaire","Aide navigation"]
+    }
   },
   en: {
     hello: [
@@ -61,14 +107,21 @@ const R = {
     toFormTrain: [
       `For tailored workouts, please fill the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
       `Custom program? Start here 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
+      `I’ll redirect you to the form for a truly personalized plan 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`
     ],
     toFormFood: [
       `I don’t provide exact meal plans here 😉 For a custom diet: <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
       `No detailed nutrition in chat. We do that after the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
+      `For precise nutrition, please start with the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`
     ],
     toFormPrice: [
       `Prices depend on your goals. Please go through the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
-      `We personalize the budget too. Start with the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
+      `We personalize the budget too. Start with the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`
+    ],
+    siteHelp: [
+      `Need help on the site? Tell me what’s blocking and I’ll guide you ✋`,
+      `You can access the form here: <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
+      `You can also email us: <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.`
     ],
     bug: [
       `Oops 😅 tell me what’s broken and I’ll guide you. Try refreshing (Ctrl+Shift+R).`,
@@ -89,100 +142,61 @@ const R = {
     fallback: [
       `I can help you navigate or redirect you to the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`,
       `Need info, help, or guidance? I’m here 🙂`
-    ]
+    ],
+    suggestions: {
+      hello: ["Access form","Site help","Contact team"],
+      train: ["Weight loss goal","Muscle gain goal"],
+      bug:   ["Access form","Contact team"],
+      generic:["Access form","Site help"]
+    }
   }
 };
 
-const K = {
-  fr: {
-    hello: ["bonjour","salut","coucou","yo"],
-    form:  ["questionnaire","formulaire","accès","acces","inscription"],
-    bug:   ["bug","erreur","problème","probleme","marche pas","bloqué","bloquee","bloque","je n'arrive pas","je narrive pas"],
-    price: ["prix","tarif","abonnement","payer","paiement","combien","€","euro"],
-    train: ["séance","seance","exercice","exos","programme","entrain","workout","routine","planning","plan d'entraînement","plan d entrainement"],
-    food:  ["nutrition","recette","repas","manger","alimentation","macro","calorie","calories","protéine","proteine","glucide","lipide"],
-    gear:  ["matériel","materiel","équipement","equipement","haltère","barre","élastique","tapis","chaussure","chaussures"],
-    recover:["récup","recup","sommeil","étirement","etirement","stretch","courbature","hydratation"],
-    motivate:["motivation","démarrer","demarrer","commencer","reprise","reprendre","régularité","regularite","discipline"]
-  },
-  en: {
-    hello: ["hello","hi","hey"],
-    form:  ["form","questionnaire","register","sign up","signup","sign-up"],
-    bug:   ["bug","error","issue","problem","doesn't work","stuck"],
-    price: ["price","cost","plan","subscription","pay","euro","€"],
-    train: ["session","exercise","workout","program","routine","training","plan"],
-    food:  ["food","nutrition","diet","meal","recipe","protein","carb","fat","calorie"],
-    gear:  ["equipment","gear","dumbbell","bar","elastic","band","mat","shoes"],
-    recover:["recover","recovery","sleep","stretch","rest","hydration","sore"],
-    motivate:["motivation","start","restart","discipline","regularity","consistency"]
-  }
-};
-
+// --------- détection d'intentions ---------
 function detectIntent(lang, msg) {
   const keys = K[lang];
   if (any(msg, keys.hello))    return "hello";
   if (any(msg, keys.form))     return "form";
   if (any(msg, keys.bug))      return "bug";
-  if (any(msg, keys.price))    return "price";
-  if (any(msg, keys.train))    return "train";
-  if (any(msg, keys.food))     return "food";
+  if (any(msg, keys.price))    return "price";   // → redirection
+  if (any(msg, keys.train))    return "train";   // → redirection
+  if (any(msg, keys.food))     return "food";    // → redirection
   if (any(msg, keys.gear))     return "gear";
   if (any(msg, keys.recover))  return "recover";
   if (any(msg, keys.motivate)) return "motivate";
   return "other";
 }
 
-function policyAnswer(lang, msg) {
-  const r = R[lang];
-  const it = detectIntent(lang, msg);
-  if (it === "price") return pick(r.toFormPrice);
-  if (it === "train") return pick(r.toFormTrain);
-  if (it === "food")  return pick(r.toFormFood);
-  return null;
+// --------- moteur de réponse ---------
+function respond(lang, msg) {
+  const set = R[lang];
+  const intent = detectIntent(lang, msg);
+
+  // Règles bloquantes
+  if (intent === "price") return { reply: pick(set.toFormPrice) };
+  if (intent === "train") return { reply: pick(set.toFormTrain), suggestions: set.suggestions.train };
+  if (intent === "food")  return { reply: pick(set.toFormFood),  suggestions: set.suggestions.generic };
+
+  // Raccourcis utiles
+  if (intent === "hello")   return { reply: pick(set.hello),   suggestions: set.suggestions.hello };
+  if (intent === "form")    return { reply: pick(set.siteHelp) };
+  if (intent === "bug")     return { reply: pick(set.bug),     suggestions: set.suggestions.bug };
+  if (intent === "gear")    return { reply: pick(set.gear) };
+  if (intent === "recover") return { reply: pick(set.recover) };
+  if (intent === "motivate")return { reply: pick(set.motivate) };
+
+  // Fallback
+  return { reply: pick(set.fallback), suggestions: set.suggestions.generic };
 }
 
-async function callLLM({ userMessage, lang }) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model  = process.env.OPENAI_MODEL || "gpt-4o-mini";
-  const base   = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-  if (!apiKey) throw new Error("Missing OPENAI_API_KEY");
-
-  const system = (lang === "en")
-    ? "You are Files, a fitness assistant for files-coaching.com. Never provide full workouts, exact nutrition/recipes, or pricing. Redirect to the questionnaire when asked for those. Keep answers short (1–3 sentences)."
-    : "Tu es Files, assistant de coaching sportif pour files-coaching.com. Ne donne JAMAIS de séance complète, ni de nutrition/recettes exactes, ni de prix. Redirige vers le questionnaire si on te le demande. Réponds en 1–3 phrases.";
-
-  const res = await fetch(`${base}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: userMessage }
-      ],
-      temperature: 0.5
-    })
-  });
-
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`LLM error ${res.status}: ${t}`);
-  }
-  const json = await res.json();
-  return json.choices?.[0]?.message?.content?.trim() || (lang === "en"
-    ? "I’m not sure I understood."
-    : "Je ne suis pas sûr d’avoir compris.");
-}
-
+// --------- handler Netlify ---------
 exports.handler = async (event) => {
-  const headers = { "Content-Type": "application/json" };
-
   try {
+    const headers = { "Content-Type": "application/json" };
+
+    // Test direct GET
     if (event.httpMethod === "GET") {
-      return { statusCode: 200, headers, body: JSON.stringify({ reply: "IA prête ✅ / AI ready ✅" }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ reply: "Chat prêt ✅ / Chat ready ✅" }) };
     }
     if (event.httpMethod === "OPTIONS") {
       return { statusCode: 200, headers, body: "" };
@@ -195,49 +209,17 @@ exports.handler = async (event) => {
     }
 
     const lang = detectLang(message);
-    const msgL = low(message);
+    const out  = respond(lang, low(message));
 
-    // 1) Règles bloquantes
-    const pol = policyAnswer(lang, msgL);
-    if (pol) return { statusCode: 200, headers, body: JSON.stringify({ reply: pol }) };
-
-    // 2) Réponses simples sans IA
-    const it = detectIntent(lang, msgL);
-    if (it === "hello")    return { statusCode: 200, headers, body: JSON.stringify({ reply: pick(R[lang].hello) }) };
-    if (it === "bug")      return { statusCode: 200, headers, body: JSON.stringify({ reply: pick(R[lang].bug) }) };
-    if (it === "gear")     return { statusCode: 200, headers, body: JSON.stringify({ reply: pick(R[lang].gear) }) };
-    if (it === "recover")  return { statusCode: 200, headers, body: JSON.stringify({ reply: pick(R[lang].recover) }) };
-    if (it === "motivate") return { statusCode: 200, headers, body: JSON.stringify({ reply: pick(R[lang].motivate) }) };
-
-    // 3) IA avec filet de sécurité
-    let ai;
-    try {
-      ai = await callLLM({ userMessage: message, lang });
-    } catch (e) {
-      console.error("LLM call failed:", e.message || e);
-      // Fallback doux au lieu d’un 500
-      ai = (lang === "en")
-        ? `I can help you navigate, or redirect you to the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`
-        : `Je peux t’aider à naviguer, ou te rediriger vers le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`;
-    }
-
-    // 4) Post-filtre anti-débordement
-    const bad = /(recette|recipes?|meal plan|nutrition plan|full (workout|program)|séance complète|prix|tarif|price|cost)/i;
-    if (bad.test(ai)) {
-      ai = (lang === "en")
-        ? `For that, please use the form 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`
-        : `Pour ça, passe par le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`;
-    }
-
-    return { statusCode: 200, headers, body: JSON.stringify({ reply: ai }) };
+    return { statusCode: 200, headers, body: JSON.stringify(out) };
   } catch (e) {
     console.error("Function crash:", e);
-    // Dernier filet: pas de 500 côté UI
+    // on renvoie quand même une réponse (pas de 500 côté UI)
     return {
       statusCode: 200,
-      headers,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        reply: `Je peux t’aider à naviguer, ou te rediriger vers le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`
+        reply: `Je peux t’aider à naviguer / I can help you navigate 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès / Access</a>.`
       })
     };
   }
