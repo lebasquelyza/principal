@@ -427,7 +427,7 @@
     input.value = '';
 
     try{
-      const r = await fetch('/.netlify/functions/chatbot', {
+      const r = await fetch('/.netlify/functions/chatboot', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ message: text })
