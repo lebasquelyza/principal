@@ -4,7 +4,7 @@
 // with strict safeguards: NO full workouts, NO nutrition/recipes.
 // If user asks those → redirect to the questionnaire URL below.
 
-const QUESTIONNAIRE_URL = "https://files-coaching.netlify.app";
+const QUESTIONNAIRE_URL = "files-coaching.netlify.app";
 
 const low  = (s) => (s || "").toLowerCase();
 const any  = (t, arr) => arr.some(k => t.includes(k));
