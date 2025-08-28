@@ -76,21 +76,15 @@
 </head>
 <body>
   <header>
-    <div class="container nav">
-      <div class="brand"><span class="mark"></span><span>Files <span style="color:var(--brand2)">Le Coach</span></span></div>
-      <!-- Selecteur de langue -->
-      <div style="display:flex; gap:4px; margin-left:12px;">
-        <button onclick="setLang('fr')" 
-                style="font-size:12px;padding:4px 6px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">
-          🇫🇷
-        </button>
-        <button onclick="setLang('en')" 
-                style="font-size:12px;padding:4px 6px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">
-          🇬🇧
-        </button>
-</div>
-      </div>
-      <button class="burger" aria-label="Menu" onclick="document.querySelector('.menu').classList.toggle('open')">☰</button>
+  <div class="container nav">
+    <!-- Logo -->
+    <div class="brand">
+      <span class="mark"></span>
+      <span>Files <span style="color:var(--brand2)">Le Coach</span></span>
+    </div>
+
+    <!-- Menu + langues regroupés -->
+    <div class="nav-right">
       <nav class="menu">
         <a href="#intro" data-i18n="nav.intro">Présentation</a>
         <a href="#pourquoi" data-i18n="nav.why">Pourquoi Files ?</a>
@@ -99,8 +93,15 @@
         <a href="#partenaires" data-i18n="nav.partners">Partenariats</a>
         <a class="cta" href="#contact" data-i18n="nav.contact">Nous contacter</a>
       </nav>
+
+      <!-- Boutons de langue -->
+      <div class="lang-switch">
+        <button onclick="setLang('fr')">🇫🇷</button>
+        <button onclick="setLang('en')">🇬🇧</button>
+      </div>
     </div>
-  </header>
+  </div>
+</header>
 
   <main id="main">
     <!-- Intro / Hero -->
