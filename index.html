@@ -395,7 +395,6 @@
     <button id="fcp-send" class="fcp-send">Envoyer</button>
   </div>
 </div>
-
 <script>
 (() => {
   const bubble = document.getElementById('files-chat-bubble');
@@ -408,10 +407,12 @@
   const open = () => { panel.classList.add('open'); setTimeout(() => input.focus(), 50); };
   const close = () => panel.classList.remove('open');
 
+  // Ouverture/fermeture
   bubble.addEventListener('click', open);
   closeBt.addEventListener('click', close);
   document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') close(); });
 
+  // Affichage des messages
   function pushMsg(text, me=false){
     const wrap = document.createElement('div');
     wrap.className = 'fcp-msg' + (me ? ' fcp-me' : '');
@@ -420,7 +421,7 @@
     bodyEl.scrollTop = bodyEl.scrollHeight;
   }
 
-  // Boutons de suggestions
+  // Boutons de suggestions (si le serveur en renvoie)
   function pushSuggestions(list){
     if (!Array.isArray(list) || !list.length) return;
     const row = document.createElement('div');
@@ -443,6 +444,7 @@
     bodyEl.scrollTop = bodyEl.scrollHeight;
   }
 
+  // Envoi / réception
   let sending = false;
   async function send(){
     const text = input.value.trim();
@@ -458,7 +460,18 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text })
       });
-      const data = await r.json();
+
+      if (!r.ok) {
+        const errText = await r.text().catch(()=> '');
+        console.error('Function error:', r.status, errText);
+        pushMsg(`⚠️ Erreur serveur (${r.status}).`, false);
+        return;
+      }
+
+      const data = await r.json().catch(e => {
+        console.error('JSON parse error', e);
+        return {};
+      });
 
       pushMsg(data.reply || "❌ Pas de réponse du serveur.");
       if (data.suggestions) pushSuggestions(data.suggestions);
@@ -471,9 +484,11 @@
     }
   }
 
-})(); // ⚠️ on ferme bien l’IIFE
+  // 🎯 Listeners d’envoi (bouton + Entrée)
+  sendBt.addEventListener('click', send);
+  input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') send(); });
+})();
 </script>
-
 <!-- ===== /Files Chat Bubble + Panel ===== -->
 </body>
 </html>
