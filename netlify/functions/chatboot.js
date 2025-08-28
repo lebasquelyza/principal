@@ -97,7 +97,6 @@ async function callLLM({ userMessage, lang }) {
 function safetyPostFilter(text, lang) {
   const bad = /(full (workout|program)|séance complète|programme complet|meal plan|nutrition plan|exact (macros?|calories)|recettes?\b)/i;
   if (bad.test(text)) {
-    // choose which topic to show; default workout
     const topic = /(meal plan|nutrition|recette|recipes?)/i.test(text) ? "nutrition" : "workout";
     return redirectReply(lang, topic);
   }
@@ -105,43 +104,50 @@ function safetyPostFilter(text, lang) {
 }
 
 exports.handler = async (event) => {
-  const headers = { "Content-Type": "application/json" };
+  // --- CORS headers (ok pour tests locaux; restreins à ton domaine en prod)
+  const CORS = {
+    "Access-Control-Allow-Origin": "*", // ex: "https://files-coaching.netlify.app"
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
+  };
+  const headers = { "Content-Type": "application/json", ...CORS };
 
   try {
+    // Preflight & health
     if (event.httpMethod === "GET") {
-      // health check
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, reply: "AI ready ✅" }) };
     }
     if (event.httpMethod === "OPTIONS") {
       return { statusCode: 200, headers, body: "" };
     }
 
+    // Parse input
     const body = event.body ? JSON.parse(event.body) : {};
     const message = String(body.message || "").trim();
     if (isEmpty(message)) {
       return { statusCode: 200, headers, body: JSON.stringify({ reply: "Dis-moi quelque chose 🙂 / Say something 🙂" }) };
     }
 
+    // Language & policy-first redirects
     const lang = detectLang(message);
     const t = low(message);
-
-    // 1) Policy-first: if user explicitly asks for restricted items → immediate redirect (no generation)
     const keys = BLOCK_KEYS[lang];
-    if (any(t, keys.workout))   return { statusCode: 200, headers, body: JSON.stringify({ reply: redirectReply(lang, "workout"), lang }) };
+    if (any(t, keys.workout))   return { statusCode: 200, headers, body: JSON.stringify({ reply: redirectReply(lang, "workout"),   lang }) };
     if (any(t, keys.nutrition)) return { statusCode: 200, headers, body: JSON.stringify({ reply: redirectReply(lang, "nutrition"), lang }) };
 
-    // 2) Otherwise → AI generation
+    // AI generation
     let ai = await callLLM({ userMessage: message, lang });
 
-    // 3) Safety post-filter
+    // Safety post-filter
     ai = safetyPostFilter(ai, lang);
 
     return { statusCode: 200, headers, body: JSON.stringify({ reply: ai, lang }) };
   } catch (e) {
     console.error("chatboot error:", e);
-    // graceful fallback (no 500 to UI)
     const lang = "fr";
     const reply = `Je peux t’aider à naviguer ou te rediriger vers le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`;
+    // Renvoie 200 pour éviter d'afficher une erreur côté UI
     return { statusCode: 200, headers, body: JSON.stringify({ reply, lang }) };
   }
 };
+
