@@ -1,21 +1,11 @@
 // netlify/functions/chatboot.js
-// Règles :
-// - Jamais de séance complète, jamais de plan nutrition, jamais de prix.
-// - Si on demande séances / exos précis / nutrition / prix → renvoi questionnaire.
-// - Sinon: répondre brièvement (1–3 phrases), utile, ton positif, liens quand pertinent.
-// - Varier les réponses grâce à des banques de templates.
-//
-// Option front: POST { message: "...", context?: [{role,content}, ...] }
-
 const QUESTIONNAIRE_URL = "https://files-coaching.com/questionnaire.html";
 const CONTACT_EMAIL     = "sportifandpro@gmail.com";
 
 const low = (s) => (s || "").toLowerCase();
 const any = (t, arr) => arr.some(k => t.includes(k));
 const pick = (arr) => arr[Math.floor(Math.random()*arr.length)];
-const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// ——— Intent keywords
 const K = {
   hello: ["bonjour","salut","coucou","hello","yo"],
   form:  ["questionnaire","formulaire","accès","acces","inscription"],
@@ -24,11 +14,10 @@ const K = {
   train: ["séance","seance","exercice","exos","programme","entrain","workout","routine","planning","plan d'entraînement","plan d entrainement"],
   food:  ["nutrition","recette","repas","manger","alimentation","macro","calorie","calories","protéine","proteine","glucide","lipide"],
   gear:  ["matériel","materiel","équipement","equipement","haltère","barre","élastique","tapis","chaussure","chaussures"],
-  recover:["récup","recup","sommeil","dodo","étirement","etirement","stretch","courbature","hydratation"],
+  recover:["récup","recup","sommeil","étirement","etirement","stretch","courbature","hydratation"],
   motivate:["motivation","démarrer","demarrer","commencer","reprise","reprendre","régularité","regularite","discipline"]
 };
 
-// ——— Banks de réponses variées
 const R = {
   hello: [
     "Salut 👋 Prêt(e) à avancer ?",
@@ -38,15 +27,15 @@ const R = {
   toFormTrain: [
     `Pour des séances/exercices adaptés, passe par le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
     `Le mieux pour un programme sur mesure : le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
-    `Je te redirige vers le questionnaire pour un plan vraiment personnalisé 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`
+    `Je te redirige vers le questionnaire pour un plan personnalisé 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`
   ],
   toFormFood: [
     `Je ne fournis pas de plan/recettes exactes ici 😉 Pour du personnalisé : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
     `Pas de nutrition détaillée dans le chat. On le fait après questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
-    `Pour une alimentation au cordeau, passe par le questionnaire d’abord 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`
+    `Pour une alimentation au cordeau, passe d’abord par le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`
   ],
   toFormPrice: [
-    `Les tarifs dépendent de tes objectifs. Oriente-toi via le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
+    `Les tarifs dépendent de tes objectifs. Oriente-toi via le questionnaire 👉 <a href="${QUESTIONNAIRENAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
     `On personnalise aussi le budget. D’abord le questionnaire, et on te dit tout 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`
   ],
   siteHelp: [
@@ -60,7 +49,7 @@ const R = {
   ],
   gear: [
     "Côté matériel, fais simple : haltères réglables + élastiques couvrent 90% des besoins.",
-    "Pas de matos ? On peut travailler au poids du corps. Si tu veux un programme précis → questionnaire 😉"
+    "Pas de matos ? On peut travailler au poids du corps. Pour un plan précis → questionnaire 😉"
   ],
   recover: [
     "Priorise le sommeil (7–9h) + hydratation + 5–10 min d’étirements légers post-séance.",
@@ -71,12 +60,11 @@ const R = {
     "Commence court (20–30 min), répète. La régularité fait 80% du job 💪"
   ],
   fallback: [
-    `Je peux t’aider à naviguer, ou te rediriger vers le questionnaire pour un suivi personnalisé 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
+    `Je peux t’aider à naviguer sur le site, ou te rediriger vers le questionnaire pour un suivi personnalisé 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
     `Tu veux des infos, de l’aide ou t’orienter ? Je suis là 🙂`
   ]
 };
 
-// ——— Détection d’intentions
 function detect(msg) {
   if (any(msg, K.hello))     return "hello";
   if (any(msg, K.form))      return "form";
@@ -90,7 +78,6 @@ function detect(msg) {
   return "other";
 }
 
-// ——— Génération de réponse safe + variée
 function respond(msg) {
   const intent = detect(msg);
   switch (intent) {
@@ -120,24 +107,16 @@ function respond(msg) {
 exports.handler = async (event) => {
   try {
     const headers = { "Content-Type": "application/json" };
-
-    // GET → test rapide dans le navigateur
     if (event.httpMethod === "GET") {
       return { statusCode: 200, headers, body: JSON.stringify({ reply: pick(R.hello) }) };
     }
     if (event.httpMethod === "OPTIONS") {
       return { statusCode: 200, headers, body: "" };
     }
-
     const body = JSON.parse(event.body || "{}");
     const message = String(body.message || "").trim();
-    const msg = low(message);
-
-    if (!message) {
-      return { statusCode: 200, headers, body: JSON.stringify({ reply: "Dis-moi ce dont tu as besoin 🙂" }) };
-    }
-
-    const out = respond(msg);
+    if (!message) return { statusCode: 200, headers, body: JSON.stringify({ reply: "Dis-moi ce dont tu as besoin 🙂" }) };
+    const out = respond(low(message));
     return { statusCode: 200, headers, body: JSON.stringify(out) };
   } catch (e) {
     console.error(e);
