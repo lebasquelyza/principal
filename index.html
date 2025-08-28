@@ -79,9 +79,16 @@
     <div class="container nav">
       <div class="brand"><span class="mark"></span><span>Files <span style="color:var(--brand2)">Le Coach</span></span></div>
       <!-- Selecteur de langue -->
-      <div style="margin-left:auto; display:flex; gap:6px;">
-        <button onclick="setLang('fr')" aria-label="Français">🇫🇷 FR</button>
-        <button onclick="setLang('en')" aria-label="English">🇬🇧 EN</button>
+      <div style="margin-left:auto; display:flex; gap:4px;">
+  <button onclick="setLang('fr')" 
+          style="font-size:12px;padding:4px 6px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">
+    🇫🇷
+  </button>
+  <button onclick="setLang('en')" 
+          style="font-size:12px;padding:4px 6px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">
+    🇬🇧
+  </button>
+</div>
       </div>
       <button class="burger" aria-label="Menu" onclick="document.querySelector('.menu').classList.toggle('open')">☰</button>
       <nav class="menu">
