@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Files Le Coach — Coach Sportif IA</title>
+  <meta name="description" content="Files Le Coach, votre coach sportif artificiel 24/7 : programmes d'entraînement, coin nutrition, suivi des progrès et partenaires pour atteindre vos objectifs." />
+  <meta name="theme-color" content="#16a34a" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+
+    :root{
+      --bg:#ffffff;          /* fond clair très lisible */
+      --panel:#f7f7f9;       /* panneaux gris très clair */
+      --muted:#333333;       /* texte secondaire foncé */
+      --text:#111111;        /* texte principal */
+      --brand:#16a34a;       /* vert sportif */
+      --brand2:#15803d;      /* vert foncé complément */
+      --accent:#0ea5e9;      /* bleu accent */
+      --ring:rgba(14,165,233,.35);
+      --radius:14px;
+      --shadow:0 6px 18px rgba(0,0,0,.08);
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      line-height:1.6;
+      overflow-y:scroll
+    }
+
+    /* Défilement section par section (inchangé) */
+    main{height:100vh;overflow-y:auto;scroll-snap-type:y mandatory}
+    section{min-height:100vh;scroll-snap-align:start;display:flex;align-items:center;background:var(--bg)}
+
+    a{color:var(--brand);text-decoration:none}
+    a:hover{text-decoration:underline}
+    img{max-width:100%;display:block}
+    .container{max-width:1100px;margin:0 auto;padding:0 24px}
+
+    /* Header très lisible */
+    header{
+      position:fixed;top:0;left:0;right:0;z-index:50;
+      background:#fffffff2;
+      backdrop-filter:blur(6px);
+      border-bottom:1px solid #e5e7eb
+    }
+    .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+    .brand{display:flex;gap:12px;align-items:center;font-weight:800;letter-spacing:.2px;color:#111}
+    .brand .mark{
+      width:36px;height:36px;border-radius:10px;
+      background:linear-gradient(135deg,var(--brand),var(--accent));
+      box-shadow:0 6px 12px rgba(22,163,74,.25)
+    }
+    .menu{display:flex;gap:16px}
+    .menu a{padding:8px 12px;border-radius:8px;color:#111;font-weight:600}
+    .menu a:hover{background:#f2f4f7}
+    .cta{padding:10px 14px;border-radius:10px;background:var(--brand);color:white;font-weight:800;box-shadow:var(--shadow)}
+    .burger{display:none;background:none;border:0;color:#111;font-size:20px}
+    @media (max-width:860px){
+      .menu{display:none}
+      .burger{display:block}
+      .menu.open{
+        display:flex;flex-direction:column;position:absolute;left:20px;right:20px;top:64px;
+        background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px;box-shadow:var(--shadow)
+      }
+      .menu.open a{padding:12px}
+    }
+
+    /* Hero & sections (typographie et contrastes renforcés) */
+    .hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:34px;align-items:center}
+    .hero h1{font-size:46px;line-height:1.15;margin:0 0 12px;color:#0b0f14}
+    .hero p{color:#1f2937;font-size:18px}
+    .badges{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 24px}
+    .badge{background:#eef2f7;color:#0b0f14;border:1px solid #e5e7eb;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px}
+    .card{background:#ffffff;border:1px solid #e5e7eb;border-radius:var(--radius);box-shadow:var(--shadow)}
+    .hero .visual{position:relative}
+    .glow{display:none} /* pas nécessaire sur fond clair */
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+    .stat{padding:14px;text-align:center;border-radius:12px;background:#fff;border:1px solid #e5e7eb}
+    .stat .num{display:block;font-size:22px;font-weight:800;color:#0b0f14}
+
+    section .content{width:100%}
+    .section-head{display:flex;align-items:end;justify-content:space-between;margin-bottom:14px}
+    .section-head h2{margin:0;font-size:32px;color:#0b0f14}
+    .section-head p{margin:0;color:#374151}
+
+    .grid-2{display:grid;grid-template-columns:1.1fr .9fr;gap:28px}
+    @media (max-width:900px){
+      .hero .wrap,.grid-2{grid-template-columns:1fr}
+    }
+
+    .list{display:grid;gap:12px}
+    .item{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:12px;background:#ffffff;border:1px solid #e5e7eb}
+    .dot{width:12px;height:12px;margin-top:6px;border-radius:50%;background:var(--brand)}
+
+    /* Points de navigation visibles */
+    .dots{position:fixed;right:18px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;z-index:40}
+    .dots a{width:10px;height:10px;border-radius:50%;display:block;background:#e5e7eb;border:1px solid #cbd5e1}
+    .dots a.active,.dots a:hover{background:var(--brand);box-shadow:0 0 0 6px rgba(22,163,74,.18)}
+
+    /* Footer clair */
+    footer{padding:24px 0;border-top:1px solid #e5e7eb;background:#fafafa;text-align:center;color:#4b5563}
+
+    /* Astuce défilement */
+    .hint{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#ffffff;border:1px solid #e5e7eb;padding:8px 12px;border-radius:999px;color:#374151;font-size:13px;box-shadow:var(--shadow)}
+
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <div class="brand"><span class="mark"></span><span>Files <span style="color:var(--brand2)">Le Coach</span></span></div>
+      <button class="burger" aria-label="Menu" onclick="document.querySelector('.menu').classList.toggle('open')">☰</button>
+      <nav class="menu">
+        <a href="#intro">Présentation</a>
+        <a href="#pourquoi">Pourquoi Files ?</a>
+        <a href="#nutrition">Coin nutrition</a>
+        <a href="#expertise">Notre expertise</a>
+        <a href="#partenaires">Partenariats</a>
+        <a class="cta" href="#contact">Nous contacter</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Navigation par points -->
+  <div class="dots" aria-hidden="true">
+    <a href="#intro"></a>
+    <a href="#pourquoi"></a>
+    <a href="#nutrition"></a>
+    <a href="#expertise"></a>
+    <a href="#partenaires"></a>
+    <a href="#contact"></a>
+  </div>
+
+  <div class="hint">Glisse vers le haut ⬆️ pour défiler</div>
+
+  <main id="main">
+    <!-- 1. Présentation -->
+    <section id="intro" class="hero">
+      <div class="container wrap">
+        <div>
+          <div class="badges">
+            <span class="badge">Créé en 2025</span>
+            <span class="badge">Coach IA</span>
+            <span class="badge">Objectifs atteints</span>
+          </div>
+          <h1>Le coach sportif artificiel qui t'accompagne <span style="color:var(--brand2)">24/7</span></h1>
+          <p>
+            Né en 2025 après une forte demande, <strong>Files Le Coach</strong> est un
+            <strong>coach de sport artificiel</strong> conçu pour t'aider à atteindre tes objectifs.
+            Il crée des <strong>séances personnalisées</strong>, t'accompagne en
+            <strong>nutrition</strong> et <strong>suit tes progrès</strong> en continu pour te garder motivé(e) et en sécurité.
+          </p>
+          <div class="list" style="margin-top:14px">
+            <div class="item"><span class="dot"></span><div><strong>Séances sur‑mesure</strong> selon ton niveau, ton temps et ton matériel.</div></div>
+            <div class="item"><span class="dot"></span><div><strong>Conseils nutrition</strong> et plans adaptés à tes goûts.</div></div>
+            <div class="item"><span class="dot"></span><div><strong>Suivi intelligent</strong> des performances avec ajustements automatiques.</div></div>
+          </div>
+          <div class="stats">
+            <div class="stat"><span class="num">24/7</span><small>Disponibilité</small></div>
+            <div class="stat"><span class="num">∞</span><small>Programmes adaptatifs</small></div>
+            <div class="stat"><span class="num">100%</span><small>Motivation</small></div>
+          </div>
+        </div>
+        <div class="visual card" style="padding:20px">
+          <div class="glow"></div>
+          <svg viewBox="0 0 600 420" width="100%" height="100%" aria-hidden="true">
+            <defs>
+              <linearGradient id="g" x1="0" x2="1">
+                <stop offset="0%" stop-color="#22c55e"/>
+                <stop offset="100%" stop-color="#38bdf8"/>
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="600" height="420" rx="16" fill="#0b1320"/>
+            <g transform="translate(40,40)">
+              <text x="0" y="0" fill="#a3b0c2" font-size="16">Aperçu séance</text>
+              <rect x="0" y="20" width="520" height="70" rx="12" fill="#0f1a2b" stroke="#1f2b3f"/>
+              <text x="16" y="64" fill="#e6edf5" font-size="22" font-weight="700">Full‑Body 30' — Niveau Intermédiaire</text>
+              <g transform="translate(0,110)">
+                <rect x="0" y="0" width="160" height="120" rx="12" fill="#0f1a2b" stroke="#1f2b3f"/>
+                <rect x="180" y="0" width="160" height="120" rx="12" fill="#0f1a2b" stroke="#1f2b3f"/>
+                <rect x="360" y="0" width="160" height="120" rx="12" fill="#0f1a2b" stroke="#1f2b3f"/>
+                <text x="20" y="70" fill="url(#g)" font-size="28" font-weight="800">Échauff.</text>
+                <text x="200" y="70" fill="url(#g)" font-size="28" font-weight="800">Force</text>
+                <text x="380" y="70" fill="url(#g)" font-size="28" font-weight="800">Cardio</text>
+              </g>
+              <g transform="translate(0,250)">
+                <text x="0" y="0" fill="#a3b0c2" font-size="16">Suivi de progrès</text>
+                <polyline points="0,110 60,90 120,100 180,70 240,60 300,45 360,40 420,28 480,24 520,18" fill="none" stroke="url(#g)" stroke-width="4"/>
+              </g>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Pourquoi choisir Files? -->
+    <section id="pourquoi">
+      <div class="container content">
+        <div class="section-head">
+          <h2>Pourquoi choisir <span style="color:var(--brand2)">Files</span> ?</h2>
+          <p>Un coach disponible 24h/24 et 7j/7</p>
+        </div>
+        <div class="grid-2">
+          <div class="card" style="padding:20px">
+            <div class="list">
+              <div class="item"><span class="dot"></span><div><strong>Toujours là</strong> : démarre une séance à n'importe quelle heure, même le dimanche soir.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Réponses instantanées</strong> : posture, alternatives, récupération, tout est guidé.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Adaptatif</strong> : Files ajuste la charge et le volume en fonction de tes sensations.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Sécurité</strong> : échauffements, progressions et alertes fatigue intégrés.</div></div>
+            </div>
+          </div>
+          <div class="card" style="padding:20px">
+            <h3 style="margin-top:0">Exemples d'objectifs</h3>
+            <div class="list">
+              <div class="item"><span class="dot"></span><div>Remise en forme post‑pause</div></div>
+              <div class="item"><span class="dot"></span><div>Prise de masse musculaire propre</div></div>
+              <div class="item"><span class="dot"></span><div>Perte de gras durable (sans restriction extrême)</div></div>
+              <div class="item"><span class="dot"></span><div>Préparation course 5/10/21 km</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Coin nutrition -->
+    <section id="nutrition">
+      <div class="container content">
+        <div class="section-head">
+          <h2>Coin nutrition 🥗</h2>
+          <p>Les meilleures recettes pour une alimentation saine</p>
+        </div>
+        <div class="grid-2">
+          <div>
+            <p>La nutrition est le carburant de tes performances. Avec Files, tu accèdes à des <strong>recettes équilibrées</strong> et simples, classées par objectif (perte de gras, maintien, prise de muscle) et par timing (pré‑entraînement, post‑entraînement, dîner léger, etc.).</p>
+            <div class="list" style="margin-top:12px">
+              <div class="item"><span class="dot"></span><div><strong>Macros claires</strong> pour chaque recette (kcal, protéines, glucides, lipides).</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Listes de courses</strong> générées automatiquement selon ta semaine.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Alternatives</strong> végétariennes, sans lactose, sans gluten.</div></div>
+            </div>
+          </div>
+          <div class="card" style="padding:20px">
+            <h3 style="margin-top:0">Idées rapides</h3>
+            <div class="list">
+              <div class="item"><span class="dot"></span><div>Bowl protéiné quinoa, poulet, avocat, grenade</div></div>
+              <div class="item"><span class="dot"></span><div>Overnight oats cacao & beurre de cacahuète (post‑training)</div></div>
+              <div class="item"><span class="dot"></span><div>Saumon au four, patate douce, brocoli citronné</div></div>
+              <div class="item"><span class="dot"></span><div>Tofu croustillant, riz complet, légumes croquants</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Notre expertise & pensée -->
+    <section id="expertise">
+      <div class="container content">
+        <div class="section-head">
+          <h2>Notre expertise</h2>
+          <p>Ce que nous pensons et défendons</p>
+        </div>
+        <div class="grid-2">
+          <div>
+            <p>
+              Chez Files, nous croyons que le <strong>sport est essentiel</strong> à la santé <strong>mentale</strong> et <strong>physique</strong>. Bouger régulièrement réduit le stress, améliore le sommeil, renforce l'immunité et prévient de nombreuses pathologies. Au‑delà de la performance, l'activité physique nourrit la <strong>confiance</strong>, la <strong>discipline</strong> et la <strong>résilience</strong>.
+            </p>
+            <p>
+              Notre méthode repose sur des <strong>progressions intelligentes</strong>, la <strong>récupération</strong> et une <strong>périodisation</strong> simple à suivre. Nous privilégions la <strong>constance</strong> aux solutions miracles : quelques séances bien ciblées, semaine après semaine, valent mieux qu'un sprint épuisant.
+            </p>
+          </div>
+          <div class="card" style="padding:20px">
+            <h3 style="margin-top:0">Principes clés</h3>
+            <div class="list">
+              <div class="item"><span class="dot"></span><div><strong>Technique d'abord</strong> : chaque mouvement est expliqué, variantes incluses.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Récupération</strong> : sommeil, mobilité, respiration, gestion de la charge.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Mesurable</strong> : objectifs concrets, feedback en temps réel, historique clair.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Durable</strong> : on bâtit des habitudes qui tiennent dans ta vraie vie.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Partenariats -->
+    <section id="partenaires">
+      <div class="container content">
+        <div class="section-head">
+          <h2>Nos partenariats</h2>
+          <p>Un écosystème complet pour tes objectifs</p>
+        </div>
+        <div class="grid-2">
+          <div class="card" style="padding:20px">
+            <p>
+              Nous collaborons avec de <strong>nombreux partenaires</strong> pour accélérer tes résultats : salles de sport, marques d'équipements, applications de suivi santé, spécialistes (kinés, nutritionnistes) et services de livraison saine. Cet écosystème te donne des <strong>avantages exclusifs</strong> (réductions, essais, bilans) et un accompagnement cohérent.
+            </p>
+            <div class="list" style="margin-top:12px">
+              <div class="item"><span class="dot"></span><div><strong>Gyms & studios</strong> : accès et programmes intégrés.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Équipement</strong> : haltères, bandes, capteurs.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Experts</strong> : réseau de pros pour des conseils ciblés.</div></div>
+              <div class="item"><span class="dot"></span><div><strong>Food healthy</strong> : partenaires repas & snacks équilibrés.</div></div>
+            </div>
+          </div>
+          <div class="card" style="padding:20px">
+            <h3 style="margin-top:0">Comment on t'aide</h3>
+            <div class="list">
+              <div class="item"><span class="dot"></span><div>Offres négociées pour t'équiper sans te ruiner.</div></div>
+              <div class="item"><span class="dot"></span><div>Bilans réguliers avec un pro si tu en as besoin.</div></div>
+              <div class="item"><span class="dot"></span><div>Intégration des données (pas, sommeil, fréquence cardiaque) pour affiner tes séances.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Contact -->
+    <section id="contact">
+      <div class="container content">
+        <div class="section-head">
+          <h2>Nous contacter</h2>
+          <p>Une question, un objectif, un partenariat ?</p>
+        </div>
+        <div class="grid-2">
+          <div class="card" style="padding:20px">
+            <p>Écris‑nous, on te répond rapidement :</p>
+            <p style="font-size:22px;font-weight:800"><a class="cta" href="mailto:sportifandpro@gmail.com">sportifandpro@gmail.com</a></p>
+            <p style="color:var(--muted)">Indique ton objectif, ton niveau et tes contraintes de temps. On s'occupe du reste ✌️</p>
+          </div>
+          <div class="card" style="padding:20px">
+            <h3 style="margin-top:0">Prêt(e) à commencer ?</h3>
+            <p>Ajoute Files à ton écran d'accueil et lance ta première séance dès aujourd'hui.</p>
+            <a class="cta" href="#intro" style="display:inline-block;margin-top:10px">Retour en haut</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">© 2025 Files Le Coach — Tous droits réservés</div>
+  </footer>
+
+  <script>
+    // Dots nav active state
+    const dots = document.querySelectorAll('.dots a');
+    const sections = [...document.querySelectorAll('section')];
+    const setActive = () => {
+      const y = document.getElementById('main').scrollTop;
+      const h = window.innerHeight * 0.6;
+      let idx = 0;
+      sections.forEach((s,i)=>{ if(s.offsetTop - y < h) idx = i; });
+      dots.forEach((d,i)=> d.classList.toggle('active', i===idx));
+    };
+    const main = document.getElementById('main');
+    main.addEventListener('scroll', setActive, {passive:true});
+    setActive();
+  </script>
+</body>
+</html>
