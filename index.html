@@ -98,53 +98,64 @@
   background: #fff;
   cursor: pointer;
 }
-/* === Correction header et drapeaux === */
-header {
-  height: 60px;              /* hauteur fixe raisonnable */
-  display: flex;
-  align-items: center;
+/* === Header modern / light (EN-style) === */
+header{
+  height: 70px;
+  background: #ffffffcc;            /* léger translucide */
+  backdrop-filter: blur(6px);       /* effet glass */
+  -webkit-backdrop-filter: blur(6px);
+  border-bottom: 1px solid #e5e7eb;
+  display:flex; align-items:center;
+}
+.nav{ padding: 0 }                  /* supprime le padding vertical */
+main{ padding-top: 80px }           /* évite que le hero passe sous le header */
+
+/* Menu : plus fin et élégant */
+.menu a{
+  font-weight: 500;                 /* moins gras que 600 */
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.menu a:hover{ background:#f2f4f7 }
+
+/* Bouton “Nous contacter” plus compact & moderne */
+.menu .cta{
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(22,163,74,.25);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.menu .cta:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(22,163,74,.28);
 }
 
-.nav {
-  padding: 0;                /* supprime le padding vertical qui gonflait la barre */
-}
-
-main {
-  padding-top: 70px;         /* décale le contenu pour qu'il ne passe pas sous le header */
-}
-
-.lang-switch button {
-  font-size: 10px;           /* boutons plus petits */
-  padding: 2px 4px;
-}
-    /* === Ajustement header === */
-header {
-  height: 72px;            /* un peu plus haut que 60px */
-  display: flex;
-  align-items: center;
-}
-
-.nav {
-  padding: 0;              /* on enlève le padding vertical */
-}
-
-main {
-  padding-top: 80px;       /* décale le contenu pour compenser la barre */
-}
-
-/* Boutons de langue */
-.lang-switch button {
-  font-size: 12px;         /* taille correcte */
+/* Drapeaux compacts et discrets */
+.lang-switch{ display:flex; gap:6px }
+.lang-switch button{
+  font-size: 12px;
   padding: 4px 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background:#fff;
+  cursor:pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.lang-switch button:hover{
+  background:#f9fafb;
+  transform: translateY(-1px);
 }
 
-/* Bouton “Nous contacter” plus petit */
-.menu .cta {
-  font-size: 13px;         /* réduit la taille du texte */
-  padding: 6px 10px;       /* réduit l’espace intérieur */
-  border-radius: 8px;      /* arrondi plus léger */
+/* Petites optimisations responsives */
+@media (max-width: 860px){
+  main{ padding-top: 76px } /* header un poil plus compact */
+  .menu.open{ margin-top: 8px }     /* espace sous le header en mobile */
 }
-
 </style>
 </head>
 <body>
