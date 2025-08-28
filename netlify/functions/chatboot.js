@@ -1,5 +1,5 @@
 // netlify/functions/chatbot.js
-const QUESTIONNAIRE_URL = "https://files-coaching.com/questionnaire.html";
+const QUESTIONNAIRE_URL = "questionnaire-files.netlify.app";
 const CONTACT_EMAIL = "sportifandpro@gmail.com";
 
 function includesAny(text, arr){ return arr.some(k => text.includes(k)); }
