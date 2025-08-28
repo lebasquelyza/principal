@@ -1,4 +1,4 @@
-const QUESTIONNAIRE_URL = "https://files-coaching.com/questionnaire.html";
+const QUESTIONNAIRE_URL = "questionnaire-files.netlify.app";
 const CONTACT_EMAIL = "sportifandpro@gmail.com";
 const includesAny = (t,a)=>a.some(k=>t.includes(k));
 
