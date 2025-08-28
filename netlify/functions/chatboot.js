@@ -122,23 +122,32 @@ exports.handler = async (event) => {
     }
 
     // Parse input
-    const body = event.body ? JSON.parse(event.body) : {};
-    const message = String(body.message || "").trim();
-    if (isEmpty(message)) {
-      return { statusCode: 200, headers, body: JSON.stringify({ reply: "Dis-moi quelque chose 🙂 / Say something 🙂" }) };
-    }
-
-    // Language & policy-first redirects
-    const lang = detectLang(message);
-    const t = low(message);
-    const keys = BLOCK_KEYS[lang];
-    if (any(t, keys.workout))   return { statusCode: 200, headers, body: JSON.stringify({ reply: redirectReply(lang, "workout"),   lang }) };
-    if (any(t, keys.nutrition)) return { statusCode: 200, headers, body: JSON.stringify({ reply: redirectReply(lang, "nutrition"), lang }) };
+const body = event.body ? JSON.parse(event.body) : {};
+const message = String(body.message || "").trim();
+const lang = body.lang || detectLang(message); // 👈 priorité à la langue envoyée par le front
+if (isEmpty(message)) {
+  return { statusCode: 200, headers, body: JSON.stringify({ reply: "Dis-moi quelque chose 🙂 / Say something 🙂", lang }) };
+}
 
     // AI generation
     let ai = await callLLM({ userMessage: message, lang });
+    try {
+  const payload = {
+    created_at: new Date().toISOString(),
+    lang,
+    user: message,
+    ai
+  };
 
-    // Safety post-filter
+  fetch(process.env.N8N_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+} catch (e) {
+  console.error("n8n log error:", e);
+}
+// Safety post-filter
     ai = safetyPostFilter(ai, lang);
 
     return { statusCode: 200, headers, body: JSON.stringify({ reply: ai, lang }) };
