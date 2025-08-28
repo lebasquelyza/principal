@@ -115,7 +115,10 @@
 <body>
   <header>
     <div class="container nav">
-      <div class="brand"><span class="mark"></span><span>Files <span style="color:var(--brand2)">Le Coach</span></span></div>
+      <div class="brand"><span class="mark"></span><span>Files <span style="color:var(--brand2)">Le Coach</span></span></div><div style="margin-left:auto; display:flex; gap:6px;">
+  <button onclick="setLang('fr')">🇫🇷 FR</button>
+  <button onclick="setLang('en')">🇬🇧 EN</button>
+</div>
       <button class="burger" aria-label="Menu" onclick="document.querySelector('.menu').classList.toggle('open')">☰</button>
       <nav class="menu">
         <a href="#intro">Présentation</a>
