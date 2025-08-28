@@ -1,124 +1,144 @@
 // netlify/functions/chatboot.js
-// RÈGLES :
-// - Demandes de séances/exercices spécifiques → renvoi vers questionnaire (CTA), pas de plan direct.
-// - Nutrition/recettes exactes → interdit ici → renvoi vers questionnaire.
-// - Aide navigation (questionnaire, contact, bug) → réponses guidées.
-// - En parallèle, si un e-mail est fourni, on envoie un message via Resend (optionnel).
+// Règles :
+// - Jamais de séance complète, jamais de plan nutrition, jamais de prix.
+// - Si on demande séances / exos précis / nutrition / prix → renvoi questionnaire.
+// - Sinon: répondre brièvement (1–3 phrases), utile, ton positif, liens quand pertinent.
+// - Varier les réponses grâce à des banques de templates.
 //
-// FRONT attendu : POST JSON { message: "...", email?: "..." } vers /.netlify/functions/chatboot
+// Option front: POST { message: "...", context?: [{role,content}, ...] }
 
-const QUESTIONNAIRE_URL = "questionnaire-files.netlify.app";
+const QUESTIONNAIRE_URL = "https://files-coaching.com/questionnaire.html";
 const CONTACT_EMAIL     = "sportifandpro@gmail.com";
 
-const includesAny = (t, arr) => arr.some(k => t.includes(k));
-const norm = (s) => (s || "").toLowerCase();
+const low = (s) => (s || "").toLowerCase();
+const any = (t, arr) => arr.some(k => t.includes(k));
+const pick = (arr) => arr[Math.floor(Math.random()*arr.length)];
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// --------- Envoi e-mail via Resend (API HTTP) ----------
-async function sendResend({ to, subject, text }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from   = process.env.RESEND_FROM;
-  const bcc    = process.env.RESEND_BCC || ""; // optionnel
+// ——— Intent keywords
+const K = {
+  hello: ["bonjour","salut","coucou","hello","yo"],
+  form:  ["questionnaire","formulaire","accès","acces","inscription"],
+  bug:   ["bug","erreur","problème","probleme","marche pas","bloqué","bloquee","bloque","je n'arrive pas","je narrive pas"],
+  price: ["prix","tarif","abonnement","payer","paiement","combien","€","euro"],
+  train: ["séance","seance","exercice","exos","programme","entrain","workout","routine","planning","plan d'entraînement","plan d entrainement"],
+  food:  ["nutrition","recette","repas","manger","alimentation","macro","calorie","calories","protéine","proteine","glucide","lipide"],
+  gear:  ["matériel","materiel","équipement","equipement","haltère","barre","élastique","tapis","chaussure","chaussures"],
+  recover:["récup","recup","sommeil","dodo","étirement","etirement","stretch","courbature","hydratation"],
+  motivate:["motivation","démarrer","demarrer","commencer","reprise","reprendre","régularité","regularite","discipline"]
+};
 
-  if (!apiKey || !from || !to) return; // silencieux si params manquants
+// ——— Banks de réponses variées
+const R = {
+  hello: [
+    "Salut 👋 Prêt(e) à avancer ?",
+    "Hey 💪 comment puis-je t’aider aujourd’hui ?",
+    "Coucou 👋 Besoin d’infos ou d’un coup de main sur le site ?"
+  ],
+  toFormTrain: [
+    `Pour des séances/exercices adaptés, passe par le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
+    `Le mieux pour un programme sur mesure : le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
+    `Je te redirige vers le questionnaire pour un plan vraiment personnalisé 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`
+  ],
+  toFormFood: [
+    `Je ne fournis pas de plan/recettes exactes ici 😉 Pour du personnalisé : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
+    `Pas de nutrition détaillée dans le chat. On le fait après questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
+    `Pour une alimentation au cordeau, passe par le questionnaire d’abord 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`
+  ],
+  toFormPrice: [
+    `Les tarifs dépendent de tes objectifs. Oriente-toi via le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
+    `On personnalise aussi le budget. D’abord le questionnaire, et on te dit tout 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`
+  ],
+  siteHelp: [
+    `Besoin d’aide sur le site ? Dis-moi ce qui bloque et je te guide ✋`,
+    `Tu peux accéder au questionnaire ici : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
+    `Pour nous écrire : <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.`
+  ],
+  bug: [
+    `Oups 😅 dis-moi où ça bloque et je t’accompagne. Essaie aussi d’actualiser (⌘⇧R).`,
+    `Je t’aide ! Tu peux aussi aller directement au formulaire : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">questionnaire</a>.`
+  ],
+  gear: [
+    "Côté matériel, fais simple : haltères réglables + élastiques couvrent 90% des besoins.",
+    "Pas de matos ? On peut travailler au poids du corps. Si tu veux un programme précis → questionnaire 😉"
+  ],
+  recover: [
+    "Priorise le sommeil (7–9h) + hydratation + 5–10 min d’étirements légers post-séance.",
+    "Récup simple : sommeil régulier, eau, marche légère. Pour un plan complet → questionnaire."
+  ],
+  motivate: [
+    "Fixe un objectif clair + 3 créneaux fixes/semaine. Petit pas > grand discours 😉",
+    "Commence court (20–30 min), répète. La régularité fait 80% du job 💪"
+  ],
+  fallback: [
+    `Je peux t’aider à naviguer, ou te rediriger vers le questionnaire pour un suivi personnalisé 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`,
+    `Tu veux des infos, de l’aide ou t’orienter ? Je suis là 🙂`
+  ]
+};
 
-  const body = {
-    from,
-    to,
-    subject,
-    text
-  };
-  if (bcc) body.bcc = bcc;
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    console.error("Resend error:", res.status, errText);
-  }
+// ——— Détection d’intentions
+function detect(msg) {
+  if (any(msg, K.hello))     return "hello";
+  if (any(msg, K.form))      return "form";
+  if (any(msg, K.bug))       return "bug";
+  if (any(msg, K.price))     return "price";
+  if (any(msg, K.train))     return "train";
+  if (any(msg, K.food))      return "food";
+  if (any(msg, K.gear))      return "gear";
+  if (any(msg, K.recover))   return "recover";
+  if (any(msg, K.motivate))  return "motivate";
+  return "other";
 }
 
-// --------- Génération de la réponse “chat” (RÈGLES) ----------
-function makeReply(msg) {
-  // Salutation
-  if (includesAny(msg, ["bonjour","salut","hello","cc","coucou"])) {
-    return "Salut grand(e) sportif(ve) 👋 comment puis-je t’aider ? (pour des séances précises, clique sur « Accès au questionnaire »)";
+// ——— Génération de réponse safe + variée
+function respond(msg) {
+  const intent = detect(msg);
+  switch (intent) {
+    case "hello":
+      return { reply: pick(R.hello), suggestions: ["Accéder au questionnaire","Aide navigation","Contacter l’équipe"] };
+    case "form":
+      return { reply: pick(R.siteHelp) };
+    case "bug":
+      return { reply: pick(R.bug), suggestions: ["Accéder au questionnaire","Contacter l’équipe"] };
+    case "price":
+      return { reply: pick(R.toFormPrice) }; // jamais de prix ici
+    case "train":
+      return { reply: pick(R.toFormTrain), suggestions: ["Objectif perte de poids","Objectif prise de masse"] }; // jamais de séance complète
+    case "food":
+      return { reply: pick(R.toFormFood), suggestions: ["Accéder au questionnaire","Contacter l’équipe"] }; // jamais de nutrition précise
+    case "gear":
+      return { reply: pick(R.gear) };
+    case "recover":
+      return { reply: pick(R.recover) };
+    case "motivate":
+      return { reply: pick(R.motivate) };
+    default:
+      return { reply: pick(R.fallback), suggestions: ["Accéder au questionnaire","Aide navigation"] };
   }
-
-  // Aide navigation / support
-  if (includesAny(msg, ["questionnaire","accès","acces","formulaire"])) {
-    return `Tu peux accéder au questionnaire ici : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`;
-  }
-  if (includesAny(msg, ["contact","mail","email","e-mail"])) {
-    return `Tu peux nous écrire à <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>.`;
-  }
-  if (includesAny(msg, ["bug","erreur","problème","probleme","marche pas","je n'arrive pas","je narrive pas"])) {
-    return `Pas de souci ! Dis-moi ce qui bloque et je te guide. Tu peux aussi actualiser (⌘⇧R) ou aller directement ici : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">questionnaire</a>.`;
-  }
-
-  // Séances / exercices spécifiques → CTA questionnaire (bloquant)
-  if (includesAny(msg, ["séance","seance","exercice","programme","entrain","workout","plan d'entraînement","plan d entrainement"])) {
-    return `Pour des séances/exercices adaptés, passe par le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`;
-  }
-
-  // Nutrition / recettes exactes → CTA questionnaire (bloquant)
-  if (includesAny(msg, ["nutrition","recette","recettes","repas","manger","alimentation","calories","macro"])) {
-    return `Je ne fournis pas de plan/recettes exactes ici. Pour du personnalisé : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`;
-  }
-
-  // Tarifs
-  if (includesAny(msg, ["prix","tarif","abonnement","payer","paiement"])) {
-    return `Nos offres dépendent de tes objectifs. Remplis le questionnaire pour un plan adapté : <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`;
-  }
-
-  // Fallback
-  return `Je peux t’aider à naviguer sur le site, ou te rediriger vers le questionnaire pour un accompagnement personnalisé 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès au questionnaire</a>.`;
 }
 
 exports.handler = async (event) => {
   try {
     const headers = { "Content-Type": "application/json" };
 
-    // Test rapide en GET (ouvrir l’URL dans le navigateur)
+    // GET → test rapide dans le navigateur
     if (event.httpMethod === "GET") {
-      return { statusCode: 200, headers, body: JSON.stringify({ reply: "Chat opérationnel ✅ Dis-moi ce dont tu as besoin 🙂" }) };
+      return { statusCode: 200, headers, body: JSON.stringify({ reply: pick(R.hello) }) };
     }
-
     if (event.httpMethod === "OPTIONS") {
       return { statusCode: 200, headers, body: "" };
     }
 
     const body = JSON.parse(event.body || "{}");
     const message = String(body.message || "").trim();
-    const email   = String(body.email || "").trim(); // facultatif (si tu ajoutes un champ email dans la bulle)
-    const m = norm(message);
+    const msg = low(message);
 
     if (!message) {
       return { statusCode: 200, headers, body: JSON.stringify({ reply: "Dis-moi ce dont tu as besoin 🙂" }) };
     }
 
-    // Réponse selon règles
-    const reply = makeReply(m);
-
-    // Envoi e-mail via Resend (optionnel, si l’utilisateur a laissé son e-mail)
-    // Tu peux décider ici quand envoyer : par ex. seulement si on renvoie vers le questionnaire,
-    // ou dès qu'un email est présent. Ci-dessous : envoie si email est fourni.
-    if (email) {
-      const plain = reply.replace(/<[^>]+>/g, ""); // version texte (sans HTML)
-      await sendResend({
-        to: email,
-        subject: "Files Coaching — Suite à ta demande",
-        text: `${plain}\n\nQuestionnaire : ${QUESTIONNAIRE_URL}\nContact : ${CONTACT_EMAIL}`
-      });
-    }
-
-    return { statusCode: 200, headers, body: JSON.stringify({ reply }) };
+    const out = respond(msg);
+    return { statusCode: 200, headers, body: JSON.stringify(out) };
   } catch (e) {
     console.error(e);
     return { statusCode: 500, body: JSON.stringify({ error: "server_error" }) };
