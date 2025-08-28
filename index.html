@@ -98,6 +98,25 @@
   background: #fff;
   cursor: pointer;
 }
+/* === Correction header et drapeaux === */
+header {
+  height: 60px;              /* hauteur fixe raisonnable */
+  display: flex;
+  align-items: center;
+}
+
+.nav {
+  padding: 0;                /* supprime le padding vertical qui gonflait la barre */
+}
+
+main {
+  padding-top: 70px;         /* décale le contenu pour qu'il ne passe pas sous le header */
+}
+
+.lang-switch button {
+  font-size: 10px;           /* boutons plus petits */
+  padding: 2px 4px;
+}
 </style>
 </head>
 <body>
