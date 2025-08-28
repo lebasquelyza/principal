@@ -444,34 +444,33 @@
   }
 
   let sending = false;
-  async function send(){
-    const text = input.value.trim();
-    if(!text || sending) return;
-    sending = true;
-    pushMsg(text, true);
-    input.value = '';
+async function send(){
+  const text = input.value.trim();
+  if (!text || sending) return;
+  sending = true;
 
-    try{
-      const r = await fetch('/.netlify/functions/chatboot', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ message: text })
-      });
-      const data = await r.json();
-      pushMsg(data.reply || "❌ Pas de réponse du serveur.");
-      if (data.suggestions) pushSuggestions(data.suggestions);
-    }catch(e){
-      pushMsg("⚠️ Erreur de connexion au serveur.");
-      console.error(e);
-    } finally {
-      sending = false;
-      input.focus();
-    }
+  pushMsg(text, true);
+  input.value = '';
+
+  try {
+    const r = await fetch('/.netlify/functions/chatboot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text })
+    });
+    const data = await r.json();
+
+    pushMsg(data.reply || "❌ Pas de réponse du serveur.");
+    if (data.suggestions) pushSuggestions(data.suggestions);
+  } catch (e) {
+    pushMsg("⚠️ Erreur de connexion au serveur.");
+    console.error(e);
+  } finally {
+    sending = false;
+    input.focus();
   }
+}
 
-  sendBt.addEventListener('click', send);
-  input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') send(); });
-})();
 </script>
 
 </script>
