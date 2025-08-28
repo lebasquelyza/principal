@@ -7,7 +7,7 @@
 //
 // FRONT attendu : POST JSON { message: "...", email?: "..." } vers /.netlify/functions/chatboot
 
-const QUESTIONNAIRE_URL = "questionnaires-files.netlify.app";
+const QUESTIONNAIRE_URL = "questionnaire-files.netlify.app";
 const CONTACT_EMAIL     = "sportifandpro@gmail.com";
 
 const includesAny = (t, arr) => arr.some(k => t.includes(k));
