@@ -431,50 +431,101 @@ async function saveMessageToSheet({ userId, role, text }) {
 }
 </script>
 
-  <!-- Chat script (inchangé, juste raccourci) -->
-  <script>
-  let sending=false;
-async function send(){
-  const text=input.value.trim();
-  if(!text||sending) return;
-  sending=true;
-  pushMsg(text,true);
-  input.value='';
 
-  try{
-    // 🔽 Enregistre le message utilisateur
-    saveMessageToSheet({ userId: getUid(), role: 'user', text }).catch(console.warn);
+  <!-- Chat script (UI + envoi + sauvegarde Google Sheets) -->
+<script>
+(() => {
+  const bubble = document.getElementById('files-chat-bubble');
+  const panel  = document.getElementById('files-chat-panel');
+  const bodyEl = document.getElementById('fcp-body');
+  const input  = document.getElementById('fcp-text');
+  const sendBt = document.getElementById('fcp-send');
+  const closeBt= document.getElementById('fcp-close');
 
-    const r=await fetch('/.netlify/functions/chatboot',{
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ message: text })
-    });
+  const open = () => { panel.classList.add('open'); setTimeout(() => input.focus(), 50); };
+  const close = () => panel.classList.remove('open');
+  bubble.addEventListener('click', open);
+  closeBt.addEventListener('click', close);
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') close(); });
 
-    if(!r.ok){
-      const errText=await r.text().catch(()=> '');
-      console.error('Function error:', r.status, errText);
-      pushMsg(`⚠️ Erreur serveur (${r.status}).`, false);
-      return;
-    }
-
-    const data=await r.json().catch(e=>{ console.error('JSON parse error', e); return {}; });
-    const reply = data.reply || "❌ Pas de réponse du serveur.";
-    pushMsg(reply);
-
-    // 🔽 Enregistre la réponse du bot
-    saveMessageToSheet({ userId: getUid(), role: 'bot', text: reply }).catch(console.warn);
-
-    if (data.suggestions) pushSuggestions(data.suggestions);
-  }catch(e){
-    pushMsg("⚠️ Erreur de connexion au serveur.");
-    console.error(e);
-  } finally {
-    sending=false;
-    input.focus();
+  function pushMsg(text, me=false){
+    const wrap = document.createElement('div');
+    wrap.className = 'fcp-msg' + (me ? ' fcp-me' : '');
+    wrap.innerHTML = text;
+    bodyEl.appendChild(wrap);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
   }
-}
-  </script>
+
+  function pushSuggestions(list){
+    if (!Array.isArray(list) || !list.length) return;
+    const row = document.createElement('div');
+    row.style.display='flex';
+    row.style.flexWrap='wrap';
+    row.style.gap='6px';
+    row.style.marginTop='6px';
+    list.forEach(label=>{
+      const b=document.createElement('button');
+      b.textContent=label;
+      b.style.border='1px solid #e5e7eb';
+      b.style.borderRadius='10px';
+      b.style.padding='6px 10px';
+      b.style.background='#fff';
+      b.style.cursor='pointer';
+      b.onclick=()=>{ input.value=label; send(); row.remove(); };
+      row.appendChild(b);
+    });
+    bodyEl.appendChild(row);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  // === ENVOI + LOG SHEETS ===
+  let sending = false;
+  async function send(){
+    const text = input.value.trim();
+    if(!text || sending) return;
+    sending = true;
+    pushMsg(text, true);
+    input.value = '';
+
+    try{
+      // log message utilisateur (ne bloque pas l'UI)
+      saveMessageToSheet({ userId: getUid(), role: 'user', text }).catch(console.warn);
+
+      const r = await fetch('/.netlify/functions/chatboot', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+
+      if(!r.ok){
+        const errText = await r.text().catch(()=> '');
+        console.error('Function error:', r.status, errText);
+        pushMsg(`⚠️ Erreur serveur (${r.status}).`);
+        return;
+      }
+
+      const data = await r.json().catch(e=>{ console.error('JSON parse error', e); return {}; });
+      const reply = data.reply || "❌ Pas de réponse du serveur.";
+      pushMsg(reply);
+
+      // log réponse bot
+      saveMessageToSheet({ userId: getUid(), role: 'bot', text: reply }).catch(console.warn);
+
+      if (data.suggestions) pushSuggestions(data.suggestions);
+    }catch(e){
+      pushMsg("⚠️ Erreur de connexion au serveur.");
+      console.error(e);
+    } finally {
+      sending = false;
+      input.focus();
+    }
+  }
+
+  sendBt.addEventListener('click', send);
+  input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') send(); });
+})();
+</script>
+
   <!-- I18N script -->
   <script>
   const translations = {
