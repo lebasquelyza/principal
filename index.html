@@ -395,6 +395,41 @@ main{ padding-top: 80px }           /* évite que le hero passe sous le header *
       <button id="fcp-send" class="fcp-send" data-i18n="chat.send">Envoyer</button>
     </div>
   </div>
+<!-- === Google Sheets: helpers + webhook === -->
+<script>
+const SHEET_WEBHOOK = 'https://script.google.com/macros/s/AKfycbz9GJkcmDXD_-a2YaZosVV5Cyuo2__L2AYDSaL5-Ea2Lzgq2lyD8ShEYQEVRpls4y_tSA/exec';
+
+function toFormUrlEncoded(obj) {
+  return Object.keys(obj)
+    .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(obj[k] ?? ''))
+    .join('&');
+}
+
+function getUid() {
+  let uid = localStorage.getItem('uid');
+  if (!uid) {
+    uid = 'u_' + Math.random().toString(36).slice(2,10);
+    localStorage.setItem('uid', uid);
+  }
+  return uid;
+}
+
+async function saveMessageToSheet({ userId, role, text }) {
+  const payload = {
+    userId,
+    role,
+    text,
+    channel: 'web',
+    meta_json: JSON.stringify({ ua: navigator.userAgent }),
+    ua: navigator.userAgent
+  };
+  await fetch(SHEET_WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: toFormUrlEncoded(payload)
+  });
+}
+</script>
 
   <!-- Chat script (inchangé, juste raccourci) -->
   <script>
@@ -417,7 +452,27 @@ main{ padding-top: 80px }           /* évite que le hero passe sous le header *
     input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') send(); });
   })();
   </script>
+  <script>
+// === Google Sheets webhook (Apps Script) ===
+// Remplace par ton URL /exec
+const SHEET_WEBHOOK = 'https://script.google.com/macros/s/AKfycbz9GJkcmDXD_-a2YaZosVV5Cyuo2__L2AYDSaL5-Ea2Lzgq2lyD8ShEYQEVRpls4y_tSA/exec';
 
+// Encoder en x-www-form-urlencoded (évite le préflight CORS)
+function toFormUrlEncoded(obj) {
+  return Object.keys(obj)
+    .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(obj[k] ?? ''))
+    .join('&');
+}
+
+// userId persistant (pseudo-anonyme)
+function getUid() {
+  let uid = localStorage.getItem('uid');
+  if (!uid) {
+    uid = 'u_' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('uid', uid);
+  }
+  return uid;
+}
   <!-- I18N script -->
   <script>
   const translations = {
