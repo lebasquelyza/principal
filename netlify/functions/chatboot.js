@@ -4,7 +4,7 @@
 // with strict safeguards: NO full workouts, NO nutrition/recipes.
 // If user asks those → redirect to the questionnaire URL below.
 
-const QUESTIONNAIRE_URL = "questionnaire.files-coaching.com";
+const QUESTIONNAIRE_URL = " questionnaire.files-coaching.com ";
 
 const low  = (s) => (s || "").toLowerCase();
 const any  = (t, arr) => arr.some(k => t.includes(k));
