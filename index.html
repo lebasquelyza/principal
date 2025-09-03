@@ -432,8 +432,7 @@ async function saveMessageToSheet({ userId, role, text }) {
 </script>
 
 
-  <!-- Chat script (UI + envoi + sauvegarde Google Sheets) -->
-<script>
+ <script>
 (() => {
   const bubble = document.getElementById('files-chat-bubble');
   const panel  = document.getElementById('files-chat-panel');
@@ -448,7 +447,7 @@ async function saveMessageToSheet({ userId, role, text }) {
   closeBt.addEventListener('click', close);
   document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') close(); });
 
-  // --- sécurité & liens cliquables
+  // ---- sécurité & rendu des liens
   function escapeHTML(s){
     const div = document.createElement('div');
     div.textContent = String(s ?? '');
@@ -461,17 +460,17 @@ async function saveMessageToSheet({ userId, role, text }) {
     );
   }
   function safeFormatAI(text){
-    // Si le backend renvoie déjà <a>, on garde. Sinon: échappe + linkify
     return /<a\s/i.test(text) ? text : linkify(escapeHTML(text));
   }
 
+  // ---- affichage messages (une seule version)
   function pushMsg(text, me=false){
     const wrap = document.createElement('div');
     wrap.className = 'fcp-msg' + (me ? ' fcp-me' : '');
     if (me) {
-      wrap.textContent = text; // jamais d'HTML côté utilisateur
+      wrap.textContent = text;              // pas d'HTML côté user
     } else {
-      wrap.innerHTML = safeFormatAI(text);
+      wrap.innerHTML = safeFormatAI(text);  // AI: échappé + URLs cliquables
     }
     bodyEl.appendChild(wrap);
     bodyEl.scrollTop = bodyEl.scrollHeight;
@@ -499,7 +498,7 @@ async function saveMessageToSheet({ userId, role, text }) {
     bodyEl.scrollTop = bodyEl.scrollHeight;
   }
 
-  // === ENVOI + LOG SHEETS ===
+  // ---- ENVOI + log Google Sheets
   let sending = false;
   async function send(){
     const text = input.value.trim();
@@ -509,7 +508,7 @@ async function saveMessageToSheet({ userId, role, text }) {
     input.value = '';
 
     try{
-      // log message utilisateur (ne bloque pas l'UI)
+      // log user (non bloquant)
       saveMessageToSheet({ userId: getUid(), role: 'user', text }).catch(console.warn);
 
       const lang = localStorage.getItem('lang') || 'fr';
@@ -528,16 +527,16 @@ async function saveMessageToSheet({ userId, role, text }) {
 
       const data = await r.json().catch(e=>{ console.error('JSON parse error', e); return {}; });
 
-      // Auto-redirect si fourni par le backend (mot-clé bloquant)
+      // auto-redirect si le backend renvoie redirectTo
       if (data.redirectTo) {
-        // window.location.assign(data.redirectTo);        // même onglet
-        window.open(data.redirectTo, '_blank', 'noopener'); // nouvel onglet (recommandé)
+        // window.location.assign(data.redirectTo);          // même onglet
+        window.open(data.redirectTo, '_blank', 'noopener');  // nouvel onglet (recommandé)
       }
 
       const reply = data.reply?.trim() || "❌ Pas de réponse du serveur.";
-      pushMsg(reply);
+      pushMsg(reply);  // sera linkifié
 
-      // log réponse bot
+      // log bot
       saveMessageToSheet({ userId: getUid(), role: 'bot', text: reply }).catch(console.warn);
 
       if (data.suggestions) pushSuggestions(data.suggestions);
@@ -555,8 +554,7 @@ async function saveMessageToSheet({ userId, role, text }) {
 })();
 </script>
 
-
-  <!-- I18N script -->
+<!-- I18N script -->
   <script>
   const translations = {
     fr: {
