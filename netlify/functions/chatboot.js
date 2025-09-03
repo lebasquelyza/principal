@@ -4,7 +4,8 @@
 // with strict safeguards: NO full workouts, NO nutrition/recipes.
 // If user asks those → redirect to the questionnaire URL below.
 
-const QUESTIONNAIRE_URL = " questionnaire.files-coaching.com ";
+// ★ URL normalisée (sans espaces, avec https) + possible override via env
+const QUESTIONNAIRE_URL = (process.env.QUESTIONNAIRE_URL || "https://questionnaire.files-coaching.com").trim();
 
 const low  = (s) => (s || "").toLowerCase();
 const any  = (t, arr) => arr.some(k => t.includes(k));
@@ -32,15 +33,19 @@ const BLOCK_KEYS = {
   }
 };
 
-// --- redirection text (short, AI-like tone but fixed policy message)
-function redirectReply(lang, topic) {
-  if (lang === "en") {
-    const label = topic === "nutrition" ? "nutrition" : "workouts";
-    return `For tailored ${label}, please use the questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Access form</a>.`;
+// ★ détection d’intention par mots-clés (FR/EN)
+function detectBlockedIntent(msg, lang) {
+  const t = low(msg);
+  const dict = BLOCK_KEYS[lang] || BLOCK_KEYS.fr;
+  for (const [topic, keys] of Object.entries(dict)) {
+    if (any(t, keys)) return topic; // "workout" | "nutrition"
   }
-  // FR
-  const label = topic === "nutrition" ? "nutrition" : "séances";
-  return `Pour du ${label} sur mesure, passe par le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`;
+  return null;
+}
+
+// --- redirection text (désormais URL brute, pas d’ancre)
+function redirectReply(/* lang, topic */) {
+  return QUESTIONNAIRE_URL; // ★ pas de <a>, juste l’URL (ton UI l’auto-linkera)
 }
 
 // --- OpenAI call (Chat Completions)
@@ -97,8 +102,7 @@ async function callLLM({ userMessage, lang }) {
 function safetyPostFilter(text, lang) {
   const bad = /(full (workout|program)|séance complète|programme complet|meal plan|nutrition plan|exact (macros?|calories)|recettes?\b)/i;
   if (bad.test(text)) {
-    const topic = /(meal plan|nutrition|recette|recipes?)/i.test(text) ? "nutrition" : "workout";
-    return redirectReply(lang, topic);
+    return redirectReply(lang, /(meal plan|nutrition|recette|recipes?)/i.test(text) ? "nutrition" : "workout");
   }
   return text;
 }
@@ -122,41 +126,60 @@ exports.handler = async (event) => {
     }
 
     // Parse input
-const body = event.body ? JSON.parse(event.body) : {};
-const message = String(body.message || "").trim();
-const lang = body.lang || detectLang(message); // 👈 priorité à la langue envoyée par le front
-if (isEmpty(message)) {
-  return { statusCode: 200, headers, body: JSON.stringify({ reply: "Dis-moi quelque chose 🙂 / Say something 🙂", lang }) };
-}
+    const body = event.body ? JSON.parse(event.body) : {};
+    const message = String(body.message || "").trim();
+    const lang = body.lang || detectLang(message); // priorité à la langue envoyée par le front
+    if (isEmpty(message)) {
+      return { statusCode: 200, headers, body: JSON.stringify({ reply: "Dis-moi quelque chose 🙂 / Say something 🙂", lang }) };
+    }
 
-    // AI generation
+    // ★ 1) Redirect immédiat si mots-clés "bloquants"
+    const topic = detectBlockedIntent(message, lang);
+    if (topic) {
+      // reply = URL brute et champ "redirectTo" pour que le front puisse rediriger sans clic
+      const reply = redirectReply(lang, topic);
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          reply,            // ex: "https://questionnaire.files-coaching.com"
+          lang,
+          redirectTo: QUESTIONNAIRE_URL, // ★ ton front peut faire: if (data.redirectTo) window.location.assign(data.redirectTo)
+          topic
+        })
+      };
+    }
+
+    // 2) Sinon, appel LLM
     let ai = await callLLM({ userMessage: message, lang });
-    try {
-  const payload = {
-    created_at: new Date().toISOString(),
-    lang,
-    user: message,
-    ai
-  };
 
-  fetch(process.env.N8N_WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  }).catch(() => {});
-} catch (e) {
-  console.error("n8n log error:", e);
-}
-// Safety post-filter
+    // Logging (n8n) hors-flux
+    try {
+      const payload = {
+        created_at: new Date().toISOString(),
+        lang,
+        user: message,
+        ai
+      };
+      fetch(process.env.N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    } catch (e) {
+      console.error("n8n log error:", e);
+    }
+
+    // 3) Safety post-filter
     ai = safetyPostFilter(ai, lang);
 
     return { statusCode: 200, headers, body: JSON.stringify({ reply: ai, lang }) };
   } catch (e) {
     console.error("chatboot error:", e);
     const lang = "fr";
-    const reply = `Je peux t’aider à naviguer ou te rediriger vers le questionnaire 👉 <a href="${QUESTIONNAIRE_URL}" target="_blank" rel="noopener">Accès</a>.`;
+    // ★ Fallback en URL brute
+    const reply = `Besoin d’un plan complet ? ${QUESTIONNAIRE_URL}`;
     // Renvoie 200 pour éviter d'afficher une erreur côté UI
     return { statusCode: 200, headers, body: JSON.stringify({ reply, lang }) };
   }
 };
-
