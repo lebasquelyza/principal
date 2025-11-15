@@ -5,7 +5,7 @@
 // If user asks those → redirect to the questionnaire URL below.
 
 // ★ URL normalisée (sans espaces, avec https) + possible override via env
-const QUESTIONNAIRE_URL = (process.env.QUESTIONNAIRE_URL || "https://questionnaire.files-coaching.com").trim();
+const QUESTIONNAIRE_URL = (process.env.QUESTIONNAIRE_URL || "https://appli.files-coaching.com").trim();
 
 const low  = (s) => (s || "").toLowerCase();
 const any  = (t, arr) => arr.some(k => t.includes(k));
